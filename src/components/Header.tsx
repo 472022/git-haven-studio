@@ -12,7 +12,7 @@ export const Header = () => {
             <div className="w-8 h-8 bg-foreground rounded-full flex items-center justify-center">
               <span className="text-background text-xl">G</span>
             </div>
-            <span className="text-xl font-semibold hidden sm:inline">GitClone</span>
+            <span className="text-xl font-semibold hidden sm:inline">GitPlus</span>
           </Link>
 
           <div className="flex-1 max-w-2xl">
