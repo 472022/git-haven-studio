@@ -9,14 +9,51 @@ import { repositories, fileTree, issues, pullRequests, commits, readmeContent } 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, GitFork, Eye, Code, AlertCircle, GitPullRequest, GitCommit, Settings } from 'lucide-react';
+import { Star, GitFork, Eye, Code, AlertCircle, GitPullRequest, GitCommit, Settings, Upload, Download } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 const RepoDetail = () => {
   const { owner, repo: repoName } = useParams();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [isPushing, setIsPushing] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
   
   const repo = repositories.find(r => r.owner === owner && r.name === repoName);
+
+  const handlePush = async () => {
+    setIsPushing(true);
+    try {
+      // Simulate push operation
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      toast.success('Changes pushed successfully!', {
+        description: 'Your local changes have been pushed to the remote repository.'
+      });
+    } catch (error) {
+      toast.error('Push failed', {
+        description: 'Unable to push changes. Please try again.'
+      });
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
+  const handlePull = async () => {
+    setIsPulling(true);
+    try {
+      // Simulate pull operation
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      toast.success('Repository updated!', {
+        description: 'Latest changes pulled from remote repository.'
+      });
+    } catch (error) {
+      toast.error('Pull failed', {
+        description: 'Unable to pull changes. Please try again.'
+      });
+    } finally {
+      setIsPulling(false);
+    }
+  };
 
   if (!repo) {
     return (
@@ -100,6 +137,28 @@ const RepoDetail = () => {
           </TabsList>
 
           <TabsContent value="code">
+            <div className="mb-4 flex items-center justify-end gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={handlePull}
+                disabled={isPulling}
+              >
+                <Download className="w-4 h-4" />
+                {isPulling ? 'Pulling...' : 'Pull'}
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="gap-2"
+                onClick={handlePush}
+                disabled={isPushing}
+              >
+                <Upload className="w-4 h-4" />
+                {isPushing ? 'Pushing...' : 'Push'}
+              </Button>
+            </div>
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-1">
                 <h3 className="font-semibold mb-3">Files</h3>
