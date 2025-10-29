@@ -10,26 +10,77 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, GitFork, Eye, Code, AlertCircle, GitPullRequest, GitCommit, Settings, Upload, Download } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const RepoDetail = () => {
   const { owner, repo: repoName } = useParams();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isPushing, setIsPushing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
+  const [fileContent, setFileContent] = useState<string>('');
+  const [isEditMode, setIsEditMode] = useState(false);
   
   const repo = repositories.find(r => r.owner === owner && r.name === repoName);
+  const repoFullName = `${owner}/${repoName}`;
+
+  // Load file content from database or use demo content
+  useEffect(() => {
+    const loadFileContent = async () => {
+      const currentFile = selectedFile || 'README.md';
+      
+      const { data, error } = await supabase
+        .from('file_contents')
+        .select('content')
+        .eq('repository', repoFullName)
+        .eq('file_path', currentFile)
+        .maybeSingle();
+
+      if (data) {
+        setFileContent(data.content);
+      } else {
+        // Use demo content if not in database
+        const demoContent = selectedFile 
+          ? `// ${selectedFile}\n\nconst example = "File content would be displayed here";\n\nexport default example;`
+          : readmeContent;
+        setFileContent(demoContent);
+      }
+    };
+
+    loadFileContent();
+  }, [selectedFile, owner, repoName, repoFullName]);
 
   const handlePush = async () => {
+    if (!isEditMode) {
+      toast.info('No changes to push', {
+        description: 'Enter edit mode and make changes before pushing.'
+      });
+      return;
+    }
+
     setIsPushing(true);
     try {
-      // Simulate push operation
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const currentFile = selectedFile || 'README.md';
+      
+      const { error } = await supabase
+        .from('file_contents')
+        .upsert({
+          repository: repoFullName,
+          file_path: currentFile,
+          content: fileContent
+        }, {
+          onConflict: 'repository,file_path'
+        });
+
+      if (error) throw error;
+
       toast.success('Changes pushed successfully!', {
-        description: 'Your local changes have been pushed to the remote repository.'
+        description: 'Your changes have been saved to the repository.'
       });
+      setIsEditMode(false);
     } catch (error) {
+      console.error('Push error:', error);
       toast.error('Push failed', {
         description: 'Unable to push changes. Please try again.'
       });
@@ -41,12 +92,29 @@ const RepoDetail = () => {
   const handlePull = async () => {
     setIsPulling(true);
     try {
-      // Simulate pull operation
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      toast.success('Repository updated!', {
-        description: 'Latest changes pulled from remote repository.'
-      });
+      const currentFile = selectedFile || 'README.md';
+      
+      const { data, error } = await supabase
+        .from('file_contents')
+        .select('content')
+        .eq('repository', repoFullName)
+        .eq('file_path', currentFile)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setFileContent(data.content);
+        toast.success('Repository updated!', {
+          description: 'Latest changes pulled from remote repository.'
+        });
+      } else {
+        toast.info('No remote changes', {
+          description: 'This file has not been pushed yet.'
+        });
+      }
     } catch (error) {
+      console.error('Pull error:', error);
       toast.error('Pull failed', {
         description: 'Unable to pull changes. Please try again.'
       });
@@ -137,27 +205,36 @@ const RepoDetail = () => {
           </TabsList>
 
           <TabsContent value="code">
-            <div className="mb-4 flex items-center justify-end gap-2">
+            <div className="mb-4 flex items-center justify-between">
               <Button 
-                variant="outline" 
+                variant={isEditMode ? "outline" : "default"}
                 size="sm" 
-                className="gap-2"
-                onClick={handlePull}
-                disabled={isPulling}
+                onClick={() => setIsEditMode(!isEditMode)}
               >
-                <Download className="w-4 h-4" />
-                {isPulling ? 'Pulling...' : 'Pull'}
+                {isEditMode ? 'View Mode' : 'Edit Mode'}
               </Button>
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="gap-2"
-                onClick={handlePush}
-                disabled={isPushing}
-              >
-                <Upload className="w-4 h-4" />
-                {isPushing ? 'Pushing...' : 'Push'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={handlePull}
+                  disabled={isPulling}
+                >
+                  <Download className="w-4 h-4" />
+                  {isPulling ? 'Pulling...' : 'Pull'}
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={handlePush}
+                  disabled={isPushing}
+                >
+                  <Upload className="w-4 h-4" />
+                  {isPushing ? 'Pushing...' : 'Push'}
+                </Button>
+              </div>
             </div>
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-1">
@@ -168,15 +245,12 @@ const RepoDetail = () => {
                 <h3 className="font-semibold mb-3">
                   {selectedFile || 'README.md'}
                 </h3>
-                {selectedFile ? (
-                  <CodeViewer 
-                    content={`// ${selectedFile}\n\nconst example = "File content would be displayed here";\n\nexport default example;`}
-                  />
-                ) : (
-                  <div className="prose prose-invert max-w-none">
-                    <CodeViewer content={readmeContent} language="markdown" />
-                  </div>
-                )}
+                <CodeViewer 
+                  content={fileContent}
+                  language={selectedFile?.endsWith('.md') ? 'markdown' : 'typescript'}
+                  isEditable={isEditMode}
+                  onContentChange={setFileContent}
+                />
               </div>
             </div>
           </TabsContent>

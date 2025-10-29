@@ -1,11 +1,32 @@
 import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 
 interface CodeViewerProps {
   content: string;
   language?: string;
+  isEditable?: boolean;
+  onContentChange?: (newContent: string) => void;
 }
 
-export const CodeViewer = ({ content, language = 'typescript' }: CodeViewerProps) => {
+export const CodeViewer = ({ 
+  content, 
+  language = 'typescript',
+  isEditable = false,
+  onContentChange
+}: CodeViewerProps) => {
+  if (isEditable) {
+    return (
+      <Card className="overflow-hidden">
+        <Textarea
+          value={content}
+          onChange={(e) => onContentChange?.(e.target.value)}
+          className="min-h-[500px] font-mono text-sm resize-none border-0 focus-visible:ring-0 rounded-none"
+          placeholder="Edit your code here..."
+        />
+      </Card>
+    );
+  }
+
   const lines = content.split('\n');
 
   return (
